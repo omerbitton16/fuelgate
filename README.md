@@ -2,7 +2,7 @@
 
 A clickable prototype that replaces physical access cards at fuel-terminal gates with a phone app, and gives the security guard a clear, searchable view of every driver's status.
 
-**[Live demo](#)** · single HTML file, no install, all data is fictional
+**[Live demo](https://omerbitton16.github.io/fuelgate/)** · single HTML file, no install, all data is fictional
 
 ---
 
