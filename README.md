@@ -2,7 +2,7 @@
 
 A clickable prototype that replaces physical access cards at fuel-terminal gates with a phone app, and gives the security guard a clear, searchable view of every driver's status.
 
-**[Live demo](https://omerbitton16.github.io/fuelgate/)** · single HTML file, no install, all data is fictional
+**[Live demo](https://omerbitton16.github.io/fuelgate/)** · no install, all data is fictional
 
 ---
 
@@ -34,7 +34,7 @@ Gate feedback stays the same as today: one continuous beep means OK, three short
 
 ## Try it
 
-Open `index.html` in any browser. The driver tab includes ready-made demo scenarios:
+Open the [live demo](https://omerbitton16.github.io/fuelgate/), or clone the repo and open `index.html` in any browser. The driver tab includes ready-made demo scenarios:
 
 1. **yossi**: all clear → enters with a continuous beep.
 2. **dani**: work-at-height permit expired → red → uploads a renewal → manager approves → white.
@@ -46,11 +46,17 @@ Open `index.html` in any browser. The driver tab includes ready-made demo scenar
 - **QR before NFC.** It works on any phone, needs no new card readers, and has no iPhone NFC restrictions. NFC can come later.
 - **Manual lookup is mandatory.** A dead battery shouldn't block the gate.
 - **No self-approval.** Every uploaded document stays *pending* until a human verifies it.
-- **Branding in one place.** The `BRAND` object at the top of the script holds the name, tagline and terminal, so the prototype can be re-skinned for any operator.
+- **Branding in one place.** The `BRAND` object in `app.js` holds the name, tagline and terminal, so the prototype can be re-skinned for any operator.
 
 ## Tech
 
-Plain HTML, CSS and JavaScript in a single file, with no framework or build step. RTL Hebrew UI, responsive down to phone width, and Web Audio for the gate beeps.
+Plain HTML, CSS and JavaScript, with no framework or build step. RTL Hebrew UI, responsive down to phone width, and Web Audio for the gate beeps.
+
+| File | What's in it |
+|---|---|
+| `index.html` | Page skeleton |
+| `styles.css` | All styling; colors are CSS variables at the top |
+| `app.js` | Branding config, demo data, status logic, and the four screens |
 
 ## Status
 
