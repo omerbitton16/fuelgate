@@ -1,0 +1,6 @@
+# Company-specific assets: keep local only, never publish
+*gadot*
+*glilot*
+*.jpeg
+*.jpg
+*.png
