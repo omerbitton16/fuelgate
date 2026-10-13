@@ -88,7 +88,7 @@ label{display:block;font-size:13px;font-weight:500;color:var(--ink-2);margin:14p
 .app-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:22px 20px 14px;background:#fff;border-bottom:1px solid var(--line)}
 .app-head .link{background:none;border:none;color:var(--brand);padding:6px;display:flex;align-items:center;gap:2px;font-weight:600;border-radius:8px}
 .app-head .link:hover{background:var(--brand-soft)}
-.avatar{width:40px;height:40px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:700}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-weight:700;flex:none}
 .hello{display:flex;align-items:center;gap:10px}
 .screen-body{flex:1;overflow:auto;padding:18px 18px 24px}
 .bnav{display:flex;justify-content:space-around;background:#fff;border-top:1px solid var(--line);padding:8px 8px 16px}
@@ -243,6 +243,15 @@ td.name b{display:block}
 .info-grid b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 
+/* Person photo: portrait for identifying the person at the gate */
+.person-top{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:start}
+.photo-box{display:flex;flex-direction:column;gap:8px}
+.photo-box img,.photo-empty{width:150px;aspect-ratio:4/5;border-radius:var(--r);border:1px solid var(--line);object-fit:cover;background:#F8FAFC}
+.photo-box img{cursor:zoom-in}
+.photo-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#98A2B3;border-style:dashed;font-size:13px}
+.photo-btn{cursor:pointer;width:150px}
+img.avatar{object-fit:cover;padding:0;border:2px solid #fff;box-shadow:var(--sh-sm)}
+
 /* ===== Manager / Admin ===== */
 .queue{display:grid;gap:14px}
 .q-item{display:grid;grid-template-columns:220px 1fr;gap:18px;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--sh)}
@@ -286,6 +295,8 @@ td.name b{display:block}
   .info-grid > div:nth-child(-n+2){border-top:none}
   .info-grid > div:nth-child(2n+1){border-inline-start:none}
   .form-grid{grid-template-columns:1fr}
+  .person-top{grid-template-columns:1fr}
+  .photo-box{align-items:center}
   .modal-head{flex-wrap:wrap}
   .guard-bar .btn{flex:1}
 }

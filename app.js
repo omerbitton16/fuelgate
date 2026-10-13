@@ -181,6 +181,39 @@ function lastDayPill(p){
   return '<span class="pill ok">פעיל</span>';
 }
 
+/* ---------- Photo: set only by security staff, never by the driver ---------- */
+function avatar(p, s = 40){
+  const st = `width:${s}px;height:${s}px;font-size:${Math.round(s * .38)}px`;
+  return p.photo ? `<img class="avatar photo" src="${p.photo}" alt="${esc(p.name)}" style="${st}">`
+                 : `<div class="avatar" style="${st}">${esc(initials(p.name))}</div>`;
+}
+function photoBox(p){
+  const inner = p.photo
+    ? `<img src="${p.photo}" alt="תמונה של ${esc(p.name)}" data-act="zoom">`
+    : `<div class="photo-empty">${icon('user',44)}<span>אין תמונה</span></div>`;
+  return `<div class="photo-box">${inner}
+    <label class="btn sec sm photo-btn">${icon('upload',15)}${p.photo ? 'החלפת תמונה' : 'העלאת תמונה'}<input type="file" accept="image/*" class="photo-input" data-id="${p.id}" hidden></label>
+  </div>`;
+}
+// Crop to a 4:5 portrait and shrink, so photos stay small in memory and in exports
+function loadPhoto(file, done){
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const W = 320, H = 400, cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const scale = Math.max(W / img.width, H / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      cv.getContext('2d').drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+      done(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => toast('הקובץ לא נקרא כתמונה');
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+
 /* ---------- Personal details: one definition for card, profile and forms ---------- */
 function personalRows(p){
   const dash = '<span class="muted">—</span>';
@@ -338,7 +371,7 @@ function bannerHtml(e){
   const title = e.ok ? `${e.action} מאושרת` : (e.color === 'yellow' ? 'לא רשום במערכת' : 'כניסה נחסמה');
   const fresh = Date.now() - new Date(e.t).getTime() < 1500 ? 'fresh' : '';
   return `<div class="banner ${e.color} ${fresh}">
-    <div class="b-top"><span class="dot ${e.color}"></span><b>${esc(e.name)}</b><span class="muted">${time(e.t)} · ${esc(e.method)}</span></div>
+    <div class="b-top">${e.id && byId(e.id) ? avatar(byId(e.id), 44) : ''}<span class="dot ${e.color}"></span><b>${esc(e.name)}</b><span class="muted">${time(e.t)} · ${esc(e.method)}</span></div>
     <div class="b-where">${icon('pin',14)}${esc(e.terminal)}</div>
     <div class="b-title">${title}</div>
     ${e.reason ? `<div class="b-reason">${esc(e.reason)}</div>` : ''}
@@ -436,7 +469,6 @@ function phoneScreen(){
       </div>`;
     }
     case 'certs': {
-      const end = dr.lastDay ? `<div class="cert-item"><div class="ci">${icon('calendar',20)}</div><div class="grow"><b>תאריך סיום עבודה ${lastDayPill(dr)}</b><span class="small muted">${fmt(dr.lastDay)} · נקבע ע״י המעסיק</span></div></div>` : '';
       const certs = reqCerts(dr).map(k => {
         const c = dr.certs[k];
         const action = UPLOADABLE.includes(k)
@@ -444,11 +476,11 @@ function phoneScreen(){
           : '';
         return `<div class="cert-item"><div class="ci">${icon(CERT_ICON[k],20)}</div><div class="grow"><b>${CERTS[k]} ${certPill(c)}</b><span class="small muted">${expText(c)}</span>${k==='security'?'<div class="small muted">מונפק ע״י הביטחון</div>':''}</div>${action}</div>`;
       }).join('');
-      return head('האישורים שלי') + `<div class="screen-body">${certs}${end}<p class="small muted">תקבל תזכורת 30 יום לפני שאישור פוקע.</p></div>` + bnav('certs');
+      return head('האישורים שלי') + `<div class="screen-body">${certs}<p class="small muted">תקבל תזכורת 30 יום לפני שאישור פוקע.</p></div>` + bnav('certs');
     }
     case 'profile':
       return head('פרופיל') + `<div class="screen-body">
-        <div class="center" style="padding:10px 0 18px"><div class="avatar" style="width:72px;height:72px;font-size:24px;margin:0 auto 10px">${esc(initials(dr.name))}</div><h2 style="margin:0">${esc(dr.name)}</h2><div class="muted">${esc(dr.company)}</div></div>
+        <div class="center" style="padding:10px 0 18px"><div style="display:flex;justify-content:center;margin-bottom:10px">${avatar(dr, 88)}</div><h2 style="margin:0">${esc(dr.name)}</h2><div class="muted">${esc(dr.company)}</div></div>
         <div class="profile">
           ${personalRows(dr).map(([l,v]) => `<div><span class="muted">${l}</span><b>${v}</b></div>`).join('')}
           <div><span class="muted">שם משתמש</span><b>${esc(dr.user)}</b></div>
@@ -465,7 +497,7 @@ function phoneScreen(){
       const warns = ev.warnings.map(w => `<div class="alert soon">${icon('clock',18)}<span class="grow">${w.k === 'lastDay' ? `ההעסקה שלך במסוף מסתיימת בעוד ${w.days} ימים (${fmt(w.expiry)}).` : `${esc(w.label)} פוקע בעוד ${w.days} ימים (${fmt(w.expiry)}). כדאי לקבוע הדרכה.`}</span></div>`).join('');
       const req = reqCerts(dr);
       const okCount = req.filter(k => dr.certs[k].status === 'valid' && daysTo(dr.certs[k].expiry) >= 0).length;
-      return `<div class="app-head"><div class="hello"><div class="avatar">${esc(initials(dr.name))}</div><div><b>שלום, ${esc(dr.name.split(' ')[0])}</b><div class="small muted">${esc(dr.company)}</div></div></div><span class="dot ${ev.color}"></span></div>
+      return `<div class="app-head"><div class="hello">${avatar(dr)}<div><b>שלום, ${esc(dr.name.split(' ')[0])}</b><div class="small muted">${esc(dr.company)}</div></div></div><span class="dot ${ev.color}"></span></div>
       <div class="screen-body">
         ${notes}
         <div class="status-card ${ev.color}">
@@ -583,21 +615,23 @@ function personModal(id){
     const pend = c.pending ? `<div class="small" style="margin-top:6px;color:#92400E">הועלה מסמך חדש, ממתין למנהל המסוף</div>` : '';
     return `<div class="cert-card"><div class="cc-head">${icon(CERT_ICON[k],16)}<b>${CERTS[k]}</b></div>${certPill(c)}<div class="muted">${expText(c)}</div>${c.number ? `<div class="mono small">מס׳ ${esc(c.number)}</div>` : ''}${pend}${img}</div>`;
   }).join('');
-  const endCard = `<div class="cert-card"><div class="cc-head">${icon('calendar',16)}<b>תאריך סיום עבודה</b></div>${lastDayPill(p)}<div class="muted">${p.lastDay ? fmt(p.lastDay) + (daysTo(p.lastDay) >= 0 ? ` · עוד ${daysTo(p.lastDay)} ימים` : '') : 'לא נקבע'}</div></div>`;
   const notReq = Object.keys(CERTS).filter(k => !req.includes(k)).map(k => CERTS[k]);
   const canPass = ev.color === 'white';
   const who = p.dept === 'driver' ? 'לנהג' : 'לעובד';
   openModal(`
     <div class="modal-head">
-      <div class="hello"><div class="avatar">${esc(initials(p.name))}</div><div><h3 style="margin:0">${esc(p.name)}</h3><div class="muted small"><span class="dept-tag">${esc(DEPTS[p.dept].label)}</span> ${esc(p.company)}</div></div></div>
+      <div class="hello"><div><h3 style="margin:0">${esc(p.name)}</h3><div class="muted small"><span class="dept-tag">${esc(DEPTS[p.dept].label)}</span> ${esc(p.company)}</div></div></div>
       <span class="status-tag ${ev.color}"><span class="dot ${ev.color}"></span>${tag}</span>
       <button class="x" data-act="close" aria-label="סגור">${icon('x',18)}</button>
     </div>
     ${issues}
     <h4 class="sub-h">${icon('id',18)}פרטים אישיים</h4>
-    <div class="info-grid">${personalRows(p).map(([l,v]) => `<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
+    <div class="person-top">
+      ${photoBox(p)}
+      <div class="info-grid">${personalRows(p).map(([l,v]) => `<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
+    </div>
     <h4 class="sub-h">${icon('doc',18)}אישורים <span class="muted small" style="font-weight:400">נדרשים ל${esc(DEPTS[p.dept].label)}</span></h4>
-    <div class="cert-grid">${certs}${endCard}</div>
+    <div class="cert-grid">${certs}</div>
     ${notReq.length ? `<p class="note">לא נדרש למחלקה: ${notReq.map(esc).join(', ')}</p>` : ''}
     <div class="row-actions">
       <button class="btn ${canPass ? 'ok' : ''}" data-act="manual" data-id="${p.id}" ${canPass ? '' : 'disabled'}>${icon(canPass ? 'check' : 'lock',18)}רישום ${p.inside ? 'יציאה' : 'כניסה'} ידני</button>
@@ -668,7 +702,7 @@ function renderAdmin(){
   const regs = state.people.filter(x => !x.approved);
   const regHtml = regs.length ? regs.map(dr => `
     <div class="card reg-card">
-      <div class="hello"><div class="avatar">${esc(initials(dr.name))}</div><div><b>${esc(dr.name)}</b><div class="small muted"><span class="dept-tag">${esc(DEPTS[dr.dept].label)}</span> ${esc(dr.company)}</div></div></div>
+      <div class="hello">${avatar(dr)}<div><b>${esc(dr.name)}</b><div class="small muted"><span class="dept-tag">${esc(DEPTS[dr.dept].label)}</span> ${esc(dr.company)}</div></div></div>
       <div class="kv"><span>ת״ז</span><span class="mono">${esc(dr.tz)}</span><span>טלפון</span><span dir="ltr">${esc(dr.phone)}</span><span>מייל</span><span dir="ltr">${esc(dr.email) || '—'}</span></div>
       <div class="row-actions"><button class="btn ok sm" data-act="approve-reg" data-id="${dr.id}">${icon('check',16)}אשר רישום</button><button class="btn bad sm" data-act="reject-reg" data-id="${dr.id}">${icon('x',16)}דחה</button></div>
     </div>`).join('') : `<div class="card empty">${icon('inbox',28)}<div style="margin-top:8px">אין בקשות רישום ממתינות.</div></div>`;
@@ -788,6 +822,10 @@ document.addEventListener('change', ev => {
     const r = new FileReader();
     r.onload = () => { ui.uploadImg = r.result; const p = $('uPrev'); p.src = r.result; p.classList.remove('hidden'); };
     r.readAsDataURL(f);
+  }
+  if (ev.target.classList.contains('photo-input')){
+    const f = ev.target.files[0], id = Number(ev.target.dataset.id); if (!f) return;
+    loadPhoto(f, url => { byId(id).photo = url; render(); personModal(id); toast('התמונה נשמרה'); });
   }
 });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeModal(); });
