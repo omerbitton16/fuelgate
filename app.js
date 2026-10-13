@@ -134,7 +134,7 @@ function seed(){
 
 let state = seed();
 let ui;
-function resetUi(){ ui = {tab:'driver', dview:'login', currentId:null, filter:'all', q:'', sound: ui ? ui.sound : true, qr:null, result:null, uploadKey:'height', uploadImg:null}; }
+function resetUi(){ ui = {tab:'driver', dview:'login', currentId:null, filter:'all', q:'', guardView:'gate', staffDept:'all', staffFilter:'all', staffQ:'', staffSort:{k:'name', dir:1}, newPhoto:null, sound: ui ? ui.sound : true, qr:null, result:null, uploadKey:'height', uploadImg:null}; }
 resetUi();
 
 const byId = id => state.people.find(x => x.id === id);
@@ -230,6 +230,21 @@ function personalRows(p){
     ['טלפון', p.phone ? `<span dir="ltr">${esc(p.phone)}</span>` : dash],
     ['מייל', p.email ? `<span dir="ltr">${esc(p.email)}</span>` : dash],
     ['כתובת', esc(p.address) || dash],
+  ];
+}
+// What the driver sees about himself in the app: work status only, no personal details he already knows
+function workRows(p){
+  const ev = evalD(p), req = reqCerts(p);
+  const ok = req.filter(k => p.certs[k].status === 'valid' && daysTo(p.certs[k].expiry) >= 0).length;
+  return [
+    ['סטטוס בשער', `<span class="dot ${ev.color}"></span>${COLOR_WORD[ev.color]}`],
+    ['אישורים בתוקף', `${ok} מתוך ${req.length}`],
+    ['מחלקה', esc(DEPTS[p.dept].label)],
+    ['מעסיק', esc(p.company)],
+    ['תאריך הצטרפות', p.joined ? fmt(p.joined) : '—'],
+    ['סיום העסקה', p.lastDay ? `${fmt(p.lastDay)} ${lastDayPill(p)}` : '<span class="muted">לא נקבע</span>'],
+    ['תנועה אחרונה בשער', p.last ? `${p.inside ? 'כניסה' : 'יציאה'} · ${time(p.last)}` : '<span class="muted">—</span>'],
+    ['שם משתמש', esc(p.user)],
   ];
 }
 // withEmployment: also ask for department, join date and last day (staff form); drivers self-registering skip these
@@ -480,12 +495,8 @@ function phoneScreen(){
     }
     case 'profile':
       return head('פרופיל') + `<div class="screen-body">
-        <div class="center" style="padding:10px 0 18px"><div style="display:flex;justify-content:center;margin-bottom:10px">${avatar(dr, 88)}</div><h2 style="margin:0">${esc(dr.name)}</h2><div class="muted">${esc(dr.company)}</div></div>
-        <div class="profile">
-          ${personalRows(dr).map(([l,v]) => `<div><span class="muted">${l}</span><b>${v}</b></div>`).join('')}
-          <div><span class="muted">שם משתמש</span><b>${esc(dr.user)}</b></div>
-          <div><span class="muted">סטטוס בשער</span><b><span class="dot ${evalD(dr).color}"></span>${COLOR_WORD[evalD(dr).color]}</b></div>
-        </div>
+        <div class="center" style="padding:10px 0 18px"><div style="display:flex;justify-content:center;margin-bottom:10px">${avatar(dr, 88)}</div><h2 style="margin:0">${esc(dr.name)}</h2><div class="muted">${esc(DEPTS[dr.dept].label)} · ${esc(dr.company)}</div></div>
+        <div class="profile">${workRows(dr).map(([l,v]) => `<div><span class="muted">${l}</span><b>${v}</b></div>`).join('')}</div>
         <p class="small muted">פרט שגוי? פנה למנהל המערכת לעדכון.</p>
         <button class="btn sec wide" data-act="logout" style="margin-top:18px">${icon('logout',18)}התנתק</button>
       </div>` + bnav('profile');
@@ -572,6 +583,7 @@ function guardRows(){
 }
 function renderGuard(){
   const all = driversOnly().map(evalD);
+  if (ui.guardView === 'staff') return renderStaff();
   const cnt = c => all.filter(e => e.color === c).length;
   const chips = [['all','הכל'],['white','לבן'],['yellow','צהוב'],['red','אדום'],['inside','בתוך המתקן']]
     .map(([k,l]) => `<button class="chip ${ui.filter===k?'active':''}" data-act="filter" data-k="${k}">${['white','yellow','red'].includes(k)?`<span class="dot ${k}"></span>`:''}${l}</button>`).join('');
@@ -584,7 +596,8 @@ function renderGuard(){
   </div>
   <div class="guard-bar">
     <div class="search-wrap">${icon('search',20)}<input id="guardSearch" class="search" type="search" placeholder="חיפוש לפי שם, ת״ז או חברה (גם לנהג בלי טלפון)" value="${esc(ui.q)}"></div>
-    <button class="btn" data-act="add-driver">${icon('plus',18)}הוספת נהג</button>
+    <button class="btn" data-act="add-driver" data-k="driver">${icon('plus',18)}הוספת נהג</button>
+    <button class="btn sec" data-act="staff-open">${icon('users',18)}כל העובדים <span class="count-pill">${state.people.length}</span></button>
     <button class="btn sec" data-act="scan-unknown">${icon('scan',18)}סימולציה: קוד לא מזוהה</button>
   </div>
   <div class="chips">${chips}</div>
@@ -602,6 +615,83 @@ function renderGuard(){
   </div>
   <p class="note">לחיצה על שורה פותחת כרטיס עובד: פרטים אישיים, מה בדיוק חסר, תאריכים, צילום האישור ורישום כניסה ידני.</p>`;
 }
+/* ---------- Full staff list (all departments) ---------- */
+const DEPT_ICON = { driver:'truck', contractor:'hardhat', employee:'user', security:'shield', tashan:'id' };
+const STATUS_ORDER = {red:0, yellow:1, white:2};
+const STAFF_COLS = [ // [sort key, header]
+  ['name','עובד'],['tz','ת״ז'],['dept','מחלקה'],['company','מעסיק'],['phone','טלפון'],
+  ['status','סטטוס'],['joined','הצטרפות'],['lastDay','יום אחרון'],['inside','מיקום'],
+];
+function staffList(){
+  const q = ui.staffQ.trim().toLowerCase();
+  const list = state.people.filter(p => {
+    if (ui.staffDept !== 'all' && p.dept !== ui.staffDept) return false;
+    const c = evalD(p).color;
+    if (ui.staffFilter === 'inside' && !p.inside) return false;
+    if (['white','yellow','red'].includes(ui.staffFilter) && c !== ui.staffFilter) return false;
+    if (!q) return true;
+    return [p.name, p.tz, p.company, p.phone, p.email, DEPTS[p.dept].label].some(v => String(v || '').toLowerCase().includes(q));
+  });
+  const {k, dir} = ui.staffSort;
+  const keyOf = p => k === 'status' ? STATUS_ORDER[evalD(p).color]
+                   : k === 'dept' ? DEPTS[p.dept].label
+                   : k === 'inside' ? (p.inside ? 0 : 1)
+                   : (p[k] ?? '');
+  return list.sort((a, b) => {
+    const x = keyOf(a), y = keyOf(b);
+    if (x === '' && y !== '') return 1;          // empty values always last
+    if (y === '' && x !== '') return -1;
+    const r = typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'he');
+    return r * dir || a.name.localeCompare(b.name, 'he');
+  });
+}
+function staffRows(){
+  const list = staffList();
+  if (!list.length) return `<tr><td colspan="${STAFF_COLS.length}" class="empty">לא נמצאו עובדים לפי הסינון.</td></tr>`;
+  const dash = '<span class="muted">—</span>';
+  return list.map(p => {
+    const c = evalD(p).color;
+    const end = p.lastDay ? `${fmt(p.lastDay)}${daysTo(p.lastDay) < 0 ? ' <span class="pill bad">הסתיים</span>' : daysTo(p.lastDay) <= 30 ? ' <span class="pill soon">בקרוב</span>' : ''}` : dash;
+    return `<tr class="row ${c}" data-act="open-driver" data-id="${p.id}">
+      <td><div class="hello">${avatar(p, 34)}<b>${esc(p.name)}</b></div></td>
+      <td class="mono">${esc(p.tz)}</td>
+      <td><span class="dept-tag">${esc(DEPTS[p.dept].label)}</span></td>
+      <td>${esc(p.company)}</td>
+      <td dir="ltr" style="text-align:right">${esc(p.phone) || dash}</td>
+      <td><span class="st-cell"><span class="dot ${c}"></span>${{white:'תקין',yellow:'לא רשום',red:'חסום'}[c]}</span></td>
+      <td>${p.joined ? fmt(p.joined) : dash}</td>
+      <td>${end}</td>
+      <td>${p.inside ? '<span class="pill ok">בפנים</span>' : '<span class="muted">בחוץ</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+const staffCount = () => `מציג ${staffList().length} מתוך ${state.people.length}`;
+function renderStaff(){
+  const deptCards = [['all','כל העובדים','users', state.people.length],
+    ...Object.entries(DEPTS).map(([k,v]) => [k, v.label, DEPT_ICON[k], state.people.filter(p => p.dept === k).length])]
+    .map(([k,l,ic,n]) => `<button class="dept-card ${ui.staffDept===k?'active':''}" data-act="staff-dept" data-k="${k}"><span class="ic">${icon(ic,20)}</span><span><b>${n}</b><span>${l}</span></span></button>`).join('');
+  const chips = [['all','כל הסטטוסים'],['white','לבן'],['yellow','צהוב'],['red','אדום'],['inside','בתוך המתקן']]
+    .map(([k,l]) => `<button class="chip ${ui.staffFilter===k?'active':''}" data-act="staff-filter" data-k="${k}">${['white','yellow','red'].includes(k)?`<span class="dot ${k}"></span>`:''}${l}</button>`).join('');
+  const {k:sk, dir} = ui.staffSort;
+  const ths = STAFF_COLS.map(([k,l]) => `<th class="sortable ${sk===k?'sorted':''}" data-act="staff-sort" data-k="${k}">${l}<span class="arrow">${sk===k ? (dir > 0 ? '▲' : '▼') : '↕'}</span></th>`).join('');
+  return `
+  <div class="staff-head">
+    <button class="btn sec" data-act="staff-close">${icon('back',18)}חזרה לשער</button>
+    <h2>${icon('users',24)}כל העובדים</h2>
+    <button class="btn" data-act="add-driver" data-k="${ui.staffDept === 'all' ? '' : ui.staffDept}">${icon('plus',18)}הוספת עובד</button>
+  </div>
+  <div class="dept-cards">${deptCards}</div>
+  <div class="guard-bar">
+    <div class="search-wrap">${icon('search',20)}<input id="staffSearch" class="search" type="search" placeholder="חיפוש לפי שם, ת״ז, מעסיק, טלפון או מייל" value="${esc(ui.staffQ)}"></div>
+  </div>
+  <div class="chips">${chips}<span class="muted small" id="staffCount" style="margin-inline-start:auto;align-self:center">${staffCount()}</span></div>
+  <div class="table-wrap"><table class="staff-table">
+    <thead><tr>${ths}</tr></thead>
+    <tbody id="staffRows">${staffRows()}</tbody>
+  </table></div>
+  <p class="note">לחיצה על כותרת עמודה ממיינת. לחיצה על שורה פותחת את כרטיס העובד.</p>`;
+}
+
 function personModal(id){
   const p = byId(id), ev = evalD(p);
   const tag = {white:'תקין · מאושר לכניסה', yellow:'לא רשום', red:'חסר אישור'}[ev.color];
@@ -639,11 +729,19 @@ function personModal(id){
     </div>
     <p class="note">${canPass ? `רישום ידני מיועד ${who} בלי טלפון או בלי סוללה. נרשם ביומן עם סימון "ידני".` : `לא ניתן לאשר כניסה ידנית ${who} שאינו תקין.`}</p>`);
 }
-function addPersonModal(){
+function addPersonModal(dept){
+  ui.newPhoto = null;
   openModal(`
     <div class="modal-head"><div><h3 style="margin:0">הוספת עובד / נהג</h3><div class="muted small">ייכנס לתור אישור של מנהל המערכת ויופיע בצהוב עד האישור</div></div><button class="x" data-act="close" aria-label="סגור">${icon('x',18)}</button></div>
-    ${personFields('a', true)}
+    <div class="person-top">
+      <div class="photo-box">
+        <div id="newPhotoPrev"><div class="photo-empty">${icon('user',44)}<span>אין תמונה</span></div></div>
+        <label class="btn sec sm photo-btn">${icon('upload',15)}<span id="newPhotoLbl">העלאת תמונה</span><input type="file" accept="image/*" id="newPhotoInput" hidden></label>
+      </div>
+      <div>${personFields('a', true)}</div>
+    </div>
     <div class="row-actions"><button class="btn" data-act="add-person-save">שמור</button><button class="btn sec" data-act="close">ביטול</button></div>`);
+  if (dept && DEPTS[dept]) $('aDept').value = dept;
 }
 
 /* ---------- Terminal manager ---------- */
@@ -772,12 +870,18 @@ document.addEventListener('click', ev => {
     }
     case 'dismiss-note': cur().notes.splice(Number(el.dataset.i), 1); break;
     case 'filter': ui.filter = k; break;
+    case 'staff-open': ui.guardView = 'staff'; window.scrollTo(0, 0); break;
+    case 'staff-close': ui.guardView = 'gate'; window.scrollTo(0, 0); break;
+    case 'staff-dept': ui.staffDept = k; break;
+    case 'staff-filter': ui.staffFilter = k; break;
+    case 'staff-sort': ui.staffSort = ui.staffSort.k === k ? {k, dir: -ui.staffSort.dir} : {k, dir: 1}; break;
     case 'open-driver': personModal(id); return;
-    case 'add-driver': addPersonModal(); return;
+    case 'add-driver': addPersonModal(k); return;
     case 'add-person-save': {
       const r = readPersonFields('a', true);
       if (r.error) return toast(r.error);
-      state.people.push({...r.person, id:state.nextId++, user:'user'+r.person.tz.slice(-4), approved:false, inside:false, last:null, notes:[], certs:blankCerts()});
+      state.people.push({...r.person, id:state.nextId++, user:'user'+r.person.tz.slice(-4), photo:ui.newPhoto, approved:false, inside:false, last:null, notes:[], certs:blankCerts()});
+      ui.newPhoto = null;
       closeModal(); toast(`${r.person.name} נוסף/ה ומחכה לאישור מנהל מערכת`);
       break;
     }
@@ -814,6 +918,7 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('input', ev => {
   if (ev.target.id === 'guardSearch'){ ui.q = ev.target.value; $('guardRows').innerHTML = guardRows(); }
+  if (ev.target.id === 'staffSearch'){ ui.staffQ = ev.target.value; $('staffRows').innerHTML = staffRows(); $('staffCount').textContent = staffCount(); }
 });
 document.addEventListener('change', ev => {
   if (ev.target.id === 'uType') ui.uploadKey = ev.target.value;
@@ -822,6 +927,14 @@ document.addEventListener('change', ev => {
     const r = new FileReader();
     r.onload = () => { ui.uploadImg = r.result; const p = $('uPrev'); p.src = r.result; p.classList.remove('hidden'); };
     r.readAsDataURL(f);
+  }
+  if (ev.target.id === 'newPhotoInput'){
+    const f = ev.target.files[0]; if (!f) return;
+    loadPhoto(f, url => {
+      ui.newPhoto = url;
+      $('newPhotoPrev').innerHTML = `<img src="${url}" alt="תמונה שנבחרה">`;
+      $('newPhotoLbl').textContent = 'החלפת תמונה';
+    });
   }
   if (ev.target.classList.contains('photo-input')){
     const f = ev.target.files[0], id = Number(ev.target.dataset.id); if (!f) return;
