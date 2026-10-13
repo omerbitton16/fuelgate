@@ -211,7 +211,7 @@ td.name b{display:block}
 
 /* ===== Modal ===== */
 .modal{position:fixed;inset:0;background:rgba(14,22,51,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:grid;place-items:center;z-index:50;padding:16px}
-.modal-box{background:#fff;border-radius:var(--r-lg);width:100%;max-width:760px;max-height:92vh;overflow:auto;padding:24px;box-shadow:var(--sh-lg);animation:pop .3s var(--ease)}
+.modal-box{background:#fff;border-radius:var(--r-lg);width:100%;max-width:880px;max-height:92vh;overflow:auto;padding:24px;box-shadow:var(--sh-lg);animation:pop .3s var(--ease)}
 .modal-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
 .modal-head > div{flex:1}
 .x{background:#F1F3F8;border:none;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;color:var(--ink-2)}
@@ -228,6 +228,20 @@ td.name b{display:block}
 .issue-box{display:flex;gap:10px;background:var(--bad-bg);border:1px solid var(--bad-line);color:var(--bad-ink);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;font-size:14px}
 .issue-box ul{margin:4px 0 0;padding-inline-start:18px}
 .issue-box.yellow{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.cc-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;color:var(--brand)}
+.cc-head b{color:var(--ink)}
+.sub-h{display:flex;align-items:center;gap:8px;font-size:15px;margin:20px 0 10px;color:var(--ink)}
+.sub-h svg{color:var(--brand)}
+.dept-tag{display:inline-block;background:var(--brand-soft);color:var(--brand);border-radius:6px;padding:0 7px;font-size:12px;font-weight:600;margin-inline-end:4px}
+
+/* Personal details: label above value, 3 columns */
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#fff}
+.info-grid > div{padding:10px 14px;border-top:1px solid var(--line);border-inline-start:1px solid var(--line);min-width:0}
+.info-grid > div:nth-child(-n+3){border-top:none}
+.info-grid > div:nth-child(3n+1){border-inline-start:none}
+.info-grid span{display:block;font-size:12px;color:var(--muted)}
+.info-grid b{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 
 /* ===== Manager / Admin ===== */
 .queue{display:grid;gap:14px}
@@ -267,6 +281,12 @@ td.name b{display:block}
   .stat .n{font-size:22px}
   .cert-grid{grid-template-columns:1fr}
   .q-item{grid-template-columns:1fr}
+  .info-grid{grid-template-columns:1fr 1fr}
+  .info-grid > div:nth-child(n){border-top:1px solid var(--line);border-inline-start:1px solid var(--line)}
+  .info-grid > div:nth-child(-n+2){border-top:none}
+  .info-grid > div:nth-child(2n+1){border-inline-start:none}
+  .form-grid{grid-template-columns:1fr}
+  .modal-head{flex-wrap:wrap}
   .guard-bar .btn{flex:1}
 }
 @media (prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}

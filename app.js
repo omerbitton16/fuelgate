@@ -27,6 +27,10 @@ const I = {
   lock:'<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   height:'<path d="M12 3v18"/><path d="m8 7 4-4 4 4"/><path d="m8 17 4 4 4-4"/>',
   flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-7 1.5 1 3 2.5 3-3z"/>',
+  hardhat:'<path d="M3 17h18v2H3z"/><path d="M5 17a7 7 0 0 1 14 0"/><path d="M10 10V6h4v4"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  id:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>',
 };
 const icon = (n, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 
@@ -42,9 +46,19 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const $ = id => document.getElementById(id);
 const initials = name => name.split(' ').map(w => w[0]).slice(0,2).join('');
 
-const CERTS = { security:'אישור ביטחוני', height:'עבודה בגובה', hazmat:'הובלת חומ"ס' };
-const CERT_ICON = { security:'shield', height:'height', hazmat:'flame' };
-const UPLOADABLE = ['height','hazmat'];
+const CERTS = { security:'אישור ביטחוני', hazmat:'רישיון חומ"ס', height:'עבודה בגובה', safety:'הדרכת בטיחות' };
+const CERT_ICON = { security:'shield', hazmat:'flame', height:'height', safety:'hardhat' };
+const UPLOADABLE = ['hazmat','height','safety'];
+// Which approvals each department needs to pass the gate
+const DEPTS = {
+  driver:     { label:'נהג',       req:['security','hazmat','height','safety'] },
+  contractor: { label:'עובד קבלן', req:['security','height','safety'] },
+  employee:   { label:'עובד',      req:['security','safety'] },
+  security:   { label:'ביטחון',    req:['security','safety'] },
+  tashan:     { label:'עובד תש"ן', req:['security','safety'] },
+};
+const reqCerts = p => DEPTS[p.dept].req;
+const age = s => { const b = new Date(s+'T00:00:00'); let a = today.getFullYear() - b.getFullYear(); if (today < new Date(today.getFullYear(), b.getMonth(), b.getDate())) a--; return a; };
 const COLOR_WORD = { white:'לבן', yellow:'צהוב', red:'אדום' };
 /* ---------- Branding: the only place to change when adapting to a real company ---------- */
 const BRAND = {
@@ -61,30 +75,61 @@ function seed(){
   const V = (n,num) => ({status:'valid', expiry:d(n), number:num, img:null, pending:null});
   const M = () => ({status:'missing', expiry:null, number:null, img:null, pending:null});
   const ago = m => new Date(Date.now() - m*60000);
-  const drivers = [
-    {id:1,name:'יוסי כהן',tz:'300000011',company:'הובלות הצפון',phone:'050-1111111',user:'yossi',approved:true,inside:false,last:null,notes:[],
-     certs:{security:V(210,'SEC-4471'),height:V(95,'H-2290'),hazmat:V(160,'HZ-8812')}},
-    {id:2,name:'דני לוי',tz:'300000029',company:'דלק-טרנס',phone:'050-2222222',user:'dani',approved:true,inside:false,last:ago(48),notes:[],
-     certs:{security:V(300,'SEC-1180'),height:V(-10,'H-1022'),hazmat:V(120,'HZ-3301')}},
-    {id:3,name:'מוחמד חטיב',tz:'300000037',company:'הובלות הגליל',phone:'050-3333333',user:'mohamad',approved:true,inside:false,last:null,notes:[],
-     certs:{security:V(250,'SEC-7781'),height:V(200,'H-5521'),hazmat:V(12,'HZ-7720')}},
-    {id:4,name:'אבי מזרחי',tz:'300000045',company:'מכליות המרכז',phone:'050-4444444',user:'avi',approved:true,inside:false,last:null,notes:[],
-     certs:{security:M(),height:V(180,'H-6610'),hazmat:V(90,'HZ-1209')}},
-    {id:5,name:'רונן פרץ',tz:'300000052',company:'הובלות הדרום',phone:'050-5555555',user:'ronen',approved:false,inside:false,last:null,notes:[],
-     certs:{security:M(),height:M(),hazmat:M()}},
-    {id:6,name:'שלומי ביטון',tz:'300000060',company:'הובלות הצפון',phone:'050-6666666',user:'shlomi',approved:true,inside:true,last:ago(95),notes:[],
-     certs:{security:V(330,'SEC-3320'),height:V(240,'H-8890'),hazmat:V(280,'HZ-4456')}},
-    {id:7,name:'איגור פטרוב',tz:'300000078',company:'דלק-טרנס',phone:'050-7777777',user:'igor',approved:true,inside:false,last:null,notes:[],
-     certs:{security:V(150,'SEC-9902'),height:V(140,'H-3378'),
-            hazmat:{...M(), pending:{expiry:d(365),number:'HZ-9051',img:null,at:ago(30)}}}},
-    {id:8,name:'משה אוחיון',tz:'300000086',company:'מכליות המרכז',phone:'050-8888888',user:'moshe',approved:true,inside:false,last:null,notes:[],
-     certs:{security:V(190,'SEC-5567'),height:V(25,'H-4401'),hazmat:V(220,'HZ-6634')}},
+  // All people are fictional; emails use the reserved example.com domain
+  const P = (o) => {
+    const certs = {security:M(), hazmat:M(), height:M(), safety:M(), ...o.certs};
+    return {approved:true, inside:false, last:null, notes:[], lastDay:null, ...o, name:o.firstName+' '+o.lastName, certs};
+  };
+  const people = [
+    P({id:1,firstName:'יוסי',lastName:'כהן',tz:'300000011',gender:'זכר',dept:'driver',company:'הובלות הצפון',birth:'1984-03-14',joined:d(-1460),
+       phone:'050-1111111',email:'yossi.c@example.com',address:'הדקל 12, עפולה',user:'yossi',
+       certs:{security:V(210,'SEC-4471'),hazmat:V(160,'HZ-8812'),height:V(95,'H-2290'),safety:V(300,'SF-1021')}}),
+    P({id:2,firstName:'דני',lastName:'לוי',tz:'300000029',gender:'זכר',dept:'driver',company:'דלק-טרנס',birth:'1979-11-02',joined:d(-2900),
+       phone:'050-2222222',email:'dani.l@example.com',address:'הרימון 4, אשדוד',user:'dani',last:ago(48),
+       certs:{security:V(300,'SEC-1180'),hazmat:V(120,'HZ-3301'),height:V(-10,'H-1022'),safety:V(200,'SF-2210')}}),
+    P({id:3,firstName:'מוחמד',lastName:'חטיב',tz:'300000037',gender:'זכר',dept:'driver',company:'הובלות הגליל',birth:'1990-06-21',joined:d(-700),
+       phone:'050-3333333',email:'mohamad.k@example.com',address:'הזית 8, שפרעם',user:'mohamad',
+       certs:{security:V(250,'SEC-7781'),hazmat:V(12,'HZ-7720'),height:V(200,'H-5521'),safety:V(180,'SF-3301')}}),
+    P({id:4,firstName:'אבי',lastName:'מזרחי',tz:'300000045',gender:'זכר',dept:'driver',company:'מכליות המרכז',birth:'1987-01-30',joined:d(-60),
+       phone:'050-4444444',email:'avi.m@example.com',address:'הגפן 20, רמלה',user:'avi',
+       certs:{hazmat:V(90,'HZ-1209'),height:V(180,'H-6610'),safety:V(330,'SF-4410')}}),
+    P({id:5,firstName:'רונן',lastName:'פרץ',tz:'300000052',gender:'זכר',dept:'driver',company:'הובלות הדרום',birth:'1995-09-09',joined:d(-3),
+       phone:'050-5555555',email:'ronen.p@example.com',address:'האלה 3, דימונה',user:'ronen',approved:false}),
+    P({id:6,firstName:'שלומי',lastName:'ביטון',tz:'300000060',gender:'זכר',dept:'driver',company:'הובלות הצפון',birth:'1982-04-17',joined:d(-3300),
+       phone:'050-6666666',email:'shlomi.b@example.com',address:'התאנה 15, טבריה',user:'shlomi',inside:true,last:ago(95),
+       certs:{security:V(330,'SEC-3320'),hazmat:V(280,'HZ-4456'),height:V(240,'H-8890'),safety:V(260,'SF-5512')}}),
+    P({id:7,firstName:'איגור',lastName:'פטרוב',tz:'300000078',gender:'זכר',dept:'driver',company:'דלק-טרנס',birth:'1988-12-05',joined:d(-500),
+       phone:'050-7777777',email:'igor.p@example.com',address:'השקד 7, אשקלון',user:'igor',
+       certs:{security:V(150,'SEC-9902'),height:V(140,'H-3378'),safety:V(220,'SF-6630'),
+              hazmat:{...M(), pending:{expiry:d(365),number:'HZ-9051',img:null,at:ago(30)}}}}),
+    P({id:8,firstName:'משה',lastName:'אוחיון',tz:'300000086',gender:'זכר',dept:'driver',company:'מכליות המרכז',birth:'1976-08-25',joined:d(-4100),
+       phone:'050-8888888',email:'moshe.o@example.com',address:'הברוש 9, נתיבות',user:'moshe',
+       certs:{security:V(190,'SEC-5567'),hazmat:V(220,'HZ-6634'),height:V(25,'H-4401'),safety:V(150,'SF-7701')}}),
+    // Other departments: appear in the full staff list, not in the gate's driver table
+    P({id:9,firstName:'רחל',lastName:'אברהם',tz:'300000094',gender:'נקבה',dept:'employee',company:'מפעיל המסוף',birth:'1985-02-11',joined:d(-2200),
+       phone:'052-1010101',email:'rachel.a@example.com',address:'הנרקיס 5, באר טוביה',user:'rachel',inside:true,last:ago(180),
+       certs:{security:V(400,'SEC-2020'),safety:V(120,'SF-8120')}}),
+    P({id:10,firstName:'ואסים',lastName:'עודה',tz:'300000102',gender:'זכר',dept:'contractor',company:'א.ב. הנדסה',birth:'1991-07-19',joined:d(-40),lastDay:d(50),
+       phone:'052-2020202',email:'wasim.o@example.com',address:'הכרמל 18, כפר קאסם',user:'wasim',
+       certs:{security:V(50,'SEC-3031'),height:V(-3,'H-9902'),safety:V(80,'SF-9031')}}),
+    P({id:11,firstName:'נועם',lastName:'ברק',tz:'300000110',gender:'זכר',dept:'contractor',company:'מערכות צנרת בע"מ',birth:'1993-10-03',joined:d(-25),lastDay:d(6),
+       phone:'052-3030303',email:'noam.b@example.com',address:'הערבה 2, ירוחם',user:'noam',inside:true,last:ago(220),
+       certs:{security:V(6,'SEC-4042'),height:V(100,'H-1103'),safety:V(100,'SF-1042')}}),
+    P({id:12,firstName:'אור',lastName:'דהן',tz:'300000128',gender:'נקבה',dept:'security',company:'חברת האבטחה',birth:'2001-05-27',joined:d(-420),
+       phone:'052-4040404',email:'or.d@example.com',address:'הדולב 11, אופקים',user:'or',inside:true,last:ago(400),
+       certs:{security:V(320,'SEC-5053'),safety:V(260,'SF-2053')}}),
+    P({id:13,firstName:'גיל',lastName:'שמש',tz:'300000136',gender:'זכר',dept:'tashan',company:'תש"ן',birth:'1980-12-30',joined:d(-5000),
+       phone:'052-5050505',email:'gil.s@example.com',address:'הצבר 6, להבים',user:'gil',
+       certs:{security:V(280,'SEC-6064'),safety:V(20,'SF-3064')}}),
+    P({id:14,firstName:'יעל',lastName:'כץ',tz:'300000144',gender:'נקבה',dept:'employee',company:'מפעיל המסוף',birth:'1997-03-08',joined:d(-380),lastDay:d(-12),
+       phone:'052-6060606',email:'yael.k@example.com',address:'האורן 14, מיתר',user:'yael',
+       certs:{security:V(200,'SEC-7075'),safety:V(150,'SF-4075')}}),
   ];
   const log = [
     {t:ago(48),id:2,name:'דני לוי',color:'red',ok:false,action:'נדחה',method:'QR',terminal:TERMINAL,reason:'עבודה בגובה — פג תוקף ('+fmt(d(-10))+')'},
     {t:ago(95),id:6,name:'שלומי ביטון',color:'white',ok:true,action:'כניסה',method:'QR',terminal:TERMINAL},
   ];
-  return {drivers, log, lastScan:null, nextId:9};
+  return {people, log, lastScan:null, nextId:15};
 }
 
 let state = seed();
@@ -92,13 +137,22 @@ let ui;
 function resetUi(){ ui = {tab:'driver', dview:'login', currentId:null, filter:'all', q:'', sound: ui ? ui.sound : true, qr:null, result:null, uploadKey:'height', uploadImg:null}; }
 resetUi();
 
-const byId = id => state.drivers.find(x => x.id === id);
+const byId = id => state.people.find(x => x.id === id);
+const driversOnly = () => state.people.filter(x => x.dept === 'driver');
+const blankCert = () => ({status:'missing', expiry:null, number:null, img:null, pending:null});
+const blankCerts = () => Object.fromEntries(Object.keys(CERTS).map(k => [k, blankCert()]));
 const cur = () => byId(ui.currentId);
 
 /* ---------- Status engine ---------- */
 function evalD(dr){
   const issues = [], warnings = [];
-  for (const k of Object.keys(CERTS)){
+  // End of employment ("יום אחרון" = "תאריך סיום עבודה") blocks the gate once it has passed
+  if (dr.lastDay){
+    const n = daysTo(dr.lastDay);
+    if (n < 0) issues.push({k:'lastDay', label:'תאריך סיום עבודה', text:'ההעסקה הסתיימה ('+fmt(dr.lastDay)+')'});
+    else if (n <= 30) warnings.push({k:'lastDay', label:'תאריך סיום עבודה', days:n, expiry:dr.lastDay});
+  }
+  for (const k of reqCerts(dr)){
     const c = dr.certs[k];
     if (c.status !== 'valid'){
       issues.push({k, label:CERTS[k], text: c.pending ? 'ממתין לאישור מנהל המסוף' : 'חסר'});
@@ -119,6 +173,66 @@ function certPill(c){
   if (n <= 30) return '<span class="pill soon">פוקע בקרוב</span>';
   return '<span class="pill ok">תקין</span>';
 }
+function lastDayPill(p){
+  if (!p.lastDay) return '<span class="pill ok">ללא הגבלה</span>';
+  const n = daysTo(p.lastDay);
+  if (n < 0) return '<span class="pill bad">הסתיים</span>';
+  if (n <= 30) return '<span class="pill soon">מסתיים בקרוב</span>';
+  return '<span class="pill ok">פעיל</span>';
+}
+
+/* ---------- Personal details: one definition for card, profile and forms ---------- */
+function personalRows(p){
+  const dash = '<span class="muted">—</span>';
+  return [
+    ['שם פרטי', esc(p.firstName)],
+    ['שם משפחה', esc(p.lastName)],
+    ['מספר זהות', `<span class="mono">${esc(p.tz)}</span>`],
+    ['מין', esc(p.gender) || dash],
+    ['תאריך לידה', p.birth ? `${fmt(p.birth)} <span class="muted">(${age(p.birth)})</span>` : dash],
+    ['מחלקה', esc(DEPTS[p.dept].label)],
+    ['מעסיק', esc(p.company) || dash],
+    ['תאריך הצטרפות', p.joined ? fmt(p.joined) : dash],
+    ['יום אחרון', p.lastDay ? fmt(p.lastDay) : '<span class="muted">לא נקבע</span>'],
+    ['טלפון', p.phone ? `<span dir="ltr">${esc(p.phone)}</span>` : dash],
+    ['מייל', p.email ? `<span dir="ltr">${esc(p.email)}</span>` : dash],
+    ['כתובת', esc(p.address) || dash],
+  ];
+}
+// withEmployment: also ask for department, join date and last day (staff form); drivers self-registering skip these
+function personFields(px, withEmployment){
+  const deptOpts = Object.entries(DEPTS).map(([k,v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
+  const f = (id, label, input) => `<div><label for="${px}${id}">${label}</label>${input}</div>`;
+  return `<div class="form-grid">
+    ${f('First','שם פרטי',`<input id="${px}First" class="field">`)}
+    ${f('Last','שם משפחה',`<input id="${px}Last" class="field">`)}
+    ${f('Tz','מספר זהות',`<input id="${px}Tz" class="field" inputmode="numeric" maxlength="9">`)}
+    ${f('Gender','מין',`<select id="${px}Gender" class="field"><option>זכר</option><option>נקבה</option></select>`)}
+    ${f('Birth','תאריך לידה',`<input id="${px}Birth" class="field" type="date" max="${d(-16*365)}">`)}
+    ${withEmployment ? f('Dept','מחלקה',`<select id="${px}Dept" class="field">${deptOpts}</select>`) : ''}
+    ${f('Company', withEmployment ? 'מעסיק' : 'מעסיק / חברת הובלה',`<input id="${px}Company" class="field">`)}
+    ${withEmployment ? f('Joined','תאריך הצטרפות',`<input id="${px}Joined" class="field" type="date" value="${d(0)}">`) : ''}
+    ${withEmployment ? f('LastDay','יום אחרון (לא חובה)',`<input id="${px}LastDay" class="field" type="date">`) : ''}
+    ${f('Phone','טלפון',`<input id="${px}Phone" class="field" inputmode="tel" dir="ltr">`)}
+    ${f('Email','מייל',`<input id="${px}Email" class="field" type="email" dir="ltr">`)}
+  </div>
+  ${f('Address','כתובת',`<input id="${px}Address" class="field">`)}`;
+}
+function readPersonFields(px, withEmployment){
+  const v = id => val(px + id);
+  const p = {firstName:v('First'), lastName:v('Last'), tz:v('Tz'), gender:v('Gender'), birth:v('Birth'), company:v('Company'),
+             phone:v('Phone'), email:v('Email'), address:v('Address'),
+             dept: withEmployment ? v('Dept') : 'driver', joined: withEmployment ? (v('Joined') || d(0)) : d(0),
+             lastDay: withEmployment ? (v('LastDay') || null) : null};
+  if (!p.firstName || !p.lastName || !p.company) return {error:'נא למלא שם פרטי, שם משפחה ומעסיק'};
+  if (!/^\d{9}$/.test(p.tz)) return {error:'מספר זהות חייב להכיל 9 ספרות'};
+  if (state.people.some(x => x.tz === p.tz)) return {error:'מספר הזהות כבר קיים במערכת'};
+  if (p.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email)) return {error:'כתובת המייל לא תקינה'};
+  if (p.lastDay && p.joined && p.lastDay < p.joined) return {error:'היום האחרון לפני תאריך ההצטרפות'};
+  p.name = p.firstName + ' ' + p.lastName;
+  return {person:p};
+}
+
 function expText(c){
   if (c.status !== 'valid') return c.pending ? 'הועלה מסמך — ממתין לבדיקה' : 'אין אישור במערכת';
   const n = daysTo(c.expiry);
@@ -247,11 +361,11 @@ function closeModal(){ $('modal').classList.add('hidden'); $('modalBox').innerHT
 /* ---------- Tabs ---------- */
 function pendingDocs(){
   const items = [];
-  state.drivers.forEach(dr => Object.keys(CERTS).forEach(k => { const p = dr.certs[k].pending; if (p) items.push({dr, k, p}); }));
+  state.people.forEach(dr => Object.keys(CERTS).forEach(k => { const p = dr.certs[k].pending; if (p) items.push({dr, k, p}); }));
   return items;
 }
 function renderTabs(){
-  const docs = pendingDocs().length, regs = state.drivers.filter(x => !x.approved).length;
+  const docs = pendingDocs().length, regs = state.people.filter(x => !x.approved).length;
   const TABS = [['driver','אפליקציית נהג','phone',0],['guard','עמדת מאבטח','shield',0],['manager','מנהל מסוף','doc',docs],['admin','מנהל מערכת','users',regs]];
   $('tabs').innerHTML = TABS.map(([k,l,ic,b]) => `<button class="tab ${ui.tab===k?'active':''}" data-act="tab" data-k="${k}">${icon(ic,16)}${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('');
 }
@@ -265,7 +379,7 @@ function phoneScreen(){
   const dr = cur();
   switch (ui.dview){
     case 'login': {
-      const opts = state.drivers.map(x => `<option value="${x.id}">${esc(x.user)} — ${esc(x.name)} (${COLOR_WORD[evalD(x).color]})</option>`).join('');
+      const opts = driversOnly().map(x => `<option value="${x.id}">${esc(x.user)} — ${esc(x.name)} (${COLOR_WORD[evalD(x).color]})</option>`).join('');
       return `<div class="screen-body">
         <div class="login-hero"><div class="logo">${brandMark(34)}</div><div class="wordtext lg">${brandWord()}</div><div class="small muted" style="margin-bottom:18px">${esc(BRAND.tagline)}</div><h2 style="font-size:24px">ברוך הבא</h2><p class="muted" style="margin:0">התחבר כדי להיכנס למסוף</p></div>
         <label for="loginUser">שם משתמש</label>
@@ -280,10 +394,7 @@ function phoneScreen(){
     case 'register':
       return head('הרשמה','go-login') + `<div class="screen-body">
         <p class="muted small" style="margin-top:0">אחרי ההרשמה הבקשה עוברת לאישור מנהל מערכת. עד האישור הסטטוס בשער יהיה צהוב.</p>
-        <label for="rName">שם מלא</label><input id="rName" class="field">
-        <label for="rTz">תעודת זהות</label><input id="rTz" class="field" inputmode="numeric" maxlength="9">
-        <label for="rCompany">חברת הובלה</label><input id="rCompany" class="field">
-        <label for="rPhone">טלפון</label><input id="rPhone" class="field" inputmode="tel">
+        ${personFields('r', false)}
         <label for="rUser">שם משתמש</label><input id="rUser" class="field" autocomplete="off">
         <div style="margin-top:20px"><button class="btn wide" data-act="register">שלח בקשת הרשמה</button></div>
       </div>`;
@@ -312,7 +423,7 @@ function phoneScreen(){
       </div></div>`;
     }
     case 'upload': {
-      const opts = UPLOADABLE.map(k => `<option value="${k}" ${ui.uploadKey===k?'selected':''}>${CERTS[k]}</option>`).join('');
+      const opts = UPLOADABLE.filter(k => reqCerts(dr).includes(k)).map(k => `<option value="${k}" ${ui.uploadKey===k?'selected':''}>${CERTS[k]}</option>`).join('');
       return head('העלאת אישור','certs') + `<div class="screen-body">
         <p class="muted small" style="margin-top:0">אחרי ההדרכה במסוף, צלם את האישור שהודפס לך. האישור ייכנס לתוקף רק אחרי שמנהל המסוף יבדוק אותו.</p>
         <label for="uType">סוג אישור</label><select id="uType" class="field">${opts}</select>
@@ -325,24 +436,25 @@ function phoneScreen(){
       </div>`;
     }
     case 'certs': {
-      const certs = Object.keys(CERTS).map(k => {
+      const end = dr.lastDay ? `<div class="cert-item"><div class="ci">${icon('calendar',20)}</div><div class="grow"><b>תאריך סיום עבודה ${lastDayPill(dr)}</b><span class="small muted">${fmt(dr.lastDay)} · נקבע ע״י המעסיק</span></div></div>` : '';
+      const certs = reqCerts(dr).map(k => {
         const c = dr.certs[k];
         const action = UPLOADABLE.includes(k)
           ? `<button class="btn sm ${c.status==='valid' && daysTo(c.expiry) > 30 && !c.pending ? 'sec' : ''}" data-act="go-upload" data-k="${k}" ${c.pending ? 'disabled' : ''}>${c.status==='valid' ? 'חידוש' : 'העלאה'}</button>`
           : '';
         return `<div class="cert-item"><div class="ci">${icon(CERT_ICON[k],20)}</div><div class="grow"><b>${CERTS[k]} ${certPill(c)}</b><span class="small muted">${expText(c)}</span>${k==='security'?'<div class="small muted">מונפק ע״י הביטחון</div>':''}</div>${action}</div>`;
       }).join('');
-      return head('האישורים שלי') + `<div class="screen-body">${certs}<p class="small muted">תקבל תזכורת 30 יום לפני שאישור פוקע.</p></div>` + bnav('certs');
+      return head('האישורים שלי') + `<div class="screen-body">${certs}${end}<p class="small muted">תקבל תזכורת 30 יום לפני שאישור פוקע.</p></div>` + bnav('certs');
     }
     case 'profile':
       return head('פרופיל') + `<div class="screen-body">
         <div class="center" style="padding:10px 0 18px"><div class="avatar" style="width:72px;height:72px;font-size:24px;margin:0 auto 10px">${esc(initials(dr.name))}</div><h2 style="margin:0">${esc(dr.name)}</h2><div class="muted">${esc(dr.company)}</div></div>
         <div class="profile">
+          ${personalRows(dr).map(([l,v]) => `<div><span class="muted">${l}</span><b>${v}</b></div>`).join('')}
           <div><span class="muted">שם משתמש</span><b>${esc(dr.user)}</b></div>
-          <div><span class="muted">תעודת זהות</span><b class="mono">${esc(dr.tz)}</b></div>
-          <div><span class="muted">טלפון</span><b>${esc(dr.phone)}</b></div>
           <div><span class="muted">סטטוס בשער</span><b><span class="dot ${evalD(dr).color}"></span>${COLOR_WORD[evalD(dr).color]}</b></div>
         </div>
+        <p class="small muted">פרט שגוי? פנה למנהל המערכת לעדכון.</p>
         <button class="btn sec wide" data-act="logout" style="margin-top:18px">${icon('logout',18)}התנתק</button>
       </div>` + bnav('profile');
     default: { // home
@@ -350,8 +462,9 @@ function phoneScreen(){
       const titles = {white:'מאושר לכניסה', yellow:'הרישום ממתין לאישור', red:'הכניסה חסומה'};
       const subs = {white:'כל האישורים בתוקף', yellow:'מנהל המערכת עדיין לא אישר את הרישום שלך', red:'חסרים אישורים:'};
       const notes = dr.notes.map((n,i) => `<div class="alert bad">${icon('bell',18)}<span class="grow">${esc(n)}</span><a data-act="dismiss-note" data-i="${i}">סגור</a></div>`).join('');
-      const warns = ev.warnings.map(w => `<div class="alert soon">${icon('clock',18)}<span class="grow">${esc(w.label)} פוקע בעוד ${w.days} ימים (${fmt(w.expiry)}). כדאי לקבוע הדרכה.</span></div>`).join('');
-      const okCount = Object.values(dr.certs).filter(c => c.status === 'valid' && daysTo(c.expiry) >= 0).length;
+      const warns = ev.warnings.map(w => `<div class="alert soon">${icon('clock',18)}<span class="grow">${w.k === 'lastDay' ? `ההעסקה שלך במסוף מסתיימת בעוד ${w.days} ימים (${fmt(w.expiry)}).` : `${esc(w.label)} פוקע בעוד ${w.days} ימים (${fmt(w.expiry)}). כדאי לקבוע הדרכה.`}</span></div>`).join('');
+      const req = reqCerts(dr);
+      const okCount = req.filter(k => dr.certs[k].status === 'valid' && daysTo(dr.certs[k].expiry) >= 0).length;
       return `<div class="app-head"><div class="hello"><div class="avatar">${esc(initials(dr.name))}</div><div><b>שלום, ${esc(dr.name.split(' ')[0])}</b><div class="small muted">${esc(dr.company)}</div></div></div><span class="dot ${ev.color}"></span></div>
       <div class="screen-body">
         ${notes}
@@ -363,7 +476,7 @@ function phoneScreen(){
         ${warns}
         <div class="big-wrap"><button class="big-btn" data-act="go-qr"><span>${dr.inside ? 'יציאה' : 'כניסה'}<small>לחץ להצגת קוד</small></span></button></div>
         <div class="where"><span>${icon('pin',14)}${dr.inside ? 'אתה בתוך המתקן' : 'אתה מחוץ למתקן'}</span></div>
-        <div class="summary" data-act="nav" data-k="certs"><div><b>האישורים שלי</b><div class="small muted">${okCount} מתוך 3 בתוקף${ev.warnings.length ? ` · ${ev.warnings.length} פוקע בקרוב` : ''}</div></div>${icon('chev',20)}</div>
+        <div class="summary" data-act="nav" data-k="certs"><div><b>האישורים שלי</b><div class="small muted">${okCount} מתוך ${req.length} בתוקף${ev.warnings.length ? ` · ${ev.warnings.length} פוקע בקרוב` : ''}</div></div>${icon('chev',20)}</div>
       </div>` + bnav('home');
     }
   }
@@ -391,7 +504,7 @@ function renderDriver(){
 /* ---------- Guard station ---------- */
 function filteredDrivers(){
   const q = ui.q.trim().toLowerCase();
-  return state.drivers.filter(dr => {
+  return driversOnly().filter(dr => {
     const c = evalD(dr).color;
     if (ui.filter === 'inside' && !dr.inside) return false;
     if (['white','yellow','red'].includes(ui.filter) && c !== ui.filter) return false;
@@ -407,7 +520,7 @@ function guardRows(){
     const ev = evalD(dr);
     const missing = ev.color === 'yellow' ? '<span class="missing">לא רשום / ממתין לאישור רישום</span>'
       : ev.issues.length ? '<span class="missing">' + ev.issues.map(i => esc(i.label) + ': ' + esc(i.text)).join('<br>') + '</span>' : '<span class="muted">—</span>';
-    const valid = Object.values(dr.certs).filter(c => c.status === 'valid' && daysTo(c.expiry) >= 0);
+    const valid = reqCerts(dr).map(k => dr.certs[k]).filter(c => c.status === 'valid' && daysTo(c.expiry) >= 0);
     let nearest = '<span class="muted">—</span>';
     if (valid.length && dr.approved){
       const c = valid.reduce((a,b) => daysTo(a.expiry) <= daysTo(b.expiry) ? a : b);
@@ -426,13 +539,13 @@ function guardRows(){
   }).join('');
 }
 function renderGuard(){
-  const all = state.drivers.map(evalD);
+  const all = driversOnly().map(evalD);
   const cnt = c => all.filter(e => e.color === c).length;
   const chips = [['all','הכל'],['white','לבן'],['yellow','צהוב'],['red','אדום'],['inside','בתוך המתקן']]
     .map(([k,l]) => `<button class="chip ${ui.filter===k?'active':''}" data-act="filter" data-k="${k}">${['white','yellow','red'].includes(k)?`<span class="dot ${k}"></span>`:''}${l}</button>`).join('');
   return `
   <div class="stats">
-    <div class="stat"><div class="ic">${icon('truck',22)}</div><div><div class="n">${state.drivers.filter(x=>x.inside).length}</div><div class="l">בתוך המתקן</div></div></div>
+    <div class="stat"><div class="ic">${icon('truck',22)}</div><div><div class="n">${driversOnly().filter(x=>x.inside).length}</div><div class="l">נהגים בתוך המתקן</div></div></div>
     <div class="stat"><div class="ic ok">${icon('check',22)}</div><div><div class="n">${cnt('white')}</div><div class="l">תקינים</div></div></div>
     <div class="stat"><div class="ic warn">${icon('user',22)}</div><div><div class="n">${cnt('yellow')}</div><div class="l">לא רשומים</div></div></div>
     <div class="stat"><div class="ic bad">${icon('alert',22)}</div><div><div class="n">${cnt('red')}</div><div class="l">חסר אישור</div></div></div>
@@ -445,7 +558,7 @@ function renderGuard(){
   <div class="chips">${chips}</div>
   <div class="guard-grid">
     <div class="table-wrap"><table>
-      <thead><tr><th>סטטוס</th><th>שם</th><th>ת״ז</th><th>חברה</th><th>מה חסר</th><th>תוקף קרוב</th><th>מיקום</th><th>סריקה אחרונה</th></tr></thead>
+      <thead><tr><th>סטטוס</th><th>שם</th><th>ת״ז</th><th>מעסיק</th><th>מה חסר</th><th>תוקף קרוב</th><th>מיקום</th><th>סריקה אחרונה</th></tr></thead>
       <tbody id="guardRows">${guardRows()}</tbody>
     </table></div>
     <aside class="card monitor">
@@ -455,43 +568,48 @@ function renderGuard(){
       ${logHtml(10)}
     </aside>
   </div>
-  <p class="note">לחיצה על שורה פותחת כרטיס נהג: מה בדיוק חסר, תאריכים, צילום האישור ורישום כניסה ידני.</p>`;
+  <p class="note">לחיצה על שורה פותחת כרטיס עובד: פרטים אישיים, מה בדיוק חסר, תאריכים, צילום האישור ורישום כניסה ידני.</p>`;
 }
-function driverModal(id){
-  const dr = byId(id), ev = evalD(dr);
+function personModal(id){
+  const p = byId(id), ev = evalD(p);
   const tag = {white:'תקין · מאושר לכניסה', yellow:'לא רשום', red:'חסר אישור'}[ev.color];
   const issues = ev.color === 'yellow'
-    ? `<div class="issue-box yellow">${icon('alert',20)}<div><b>הנהג לא אושר במערכת.</b> יש להפנות למנהל מערכת לאישור רישום.</div></div>`
+    ? `<div class="issue-box yellow">${icon('alert',20)}<div><b>לא אושר במערכת.</b> יש להפנות למנהל מערכת לאישור רישום.</div></div>`
     : ev.issues.length ? `<div class="issue-box">${icon('alert',20)}<div><b>סיבת החסימה:</b><ul>` + ev.issues.map(i => `<li>${esc(i.label)} — ${esc(i.text)}</li>`).join('') + '</ul></div></div>' : '';
-  const certs = Object.keys(CERTS).map(k => {
-    const c = dr.certs[k];
-    const img = c.status === 'valid' ? `<img src="${certImg(dr,k,c)}" alt="${esc(CERTS[k])}" data-act="zoom">` : '<div class="noimg small">אין אישור</div>';
+  const req = reqCerts(p);
+  const certs = req.map(k => {
+    const c = p.certs[k];
+    const img = c.status === 'valid' ? `<img src="${certImg(p,k,c)}" alt="${esc(CERTS[k])}" data-act="zoom">` : '<div class="noimg small">אין אישור</div>';
     const pend = c.pending ? `<div class="small" style="margin-top:6px;color:#92400E">הועלה מסמך חדש, ממתין למנהל המסוף</div>` : '';
-    return `<div class="cert-card"><b>${CERTS[k]}</b> ${certPill(c)}<div class="muted">${expText(c)}</div>${c.number ? `<div class="mono small">מס׳ ${esc(c.number)}</div>` : ''}${pend}${img}</div>`;
+    return `<div class="cert-card"><div class="cc-head">${icon(CERT_ICON[k],16)}<b>${CERTS[k]}</b></div>${certPill(c)}<div class="muted">${expText(c)}</div>${c.number ? `<div class="mono small">מס׳ ${esc(c.number)}</div>` : ''}${pend}${img}</div>`;
   }).join('');
+  const endCard = `<div class="cert-card"><div class="cc-head">${icon('calendar',16)}<b>תאריך סיום עבודה</b></div>${lastDayPill(p)}<div class="muted">${p.lastDay ? fmt(p.lastDay) + (daysTo(p.lastDay) >= 0 ? ` · עוד ${daysTo(p.lastDay)} ימים` : '') : 'לא נקבע'}</div></div>`;
+  const notReq = Object.keys(CERTS).filter(k => !req.includes(k)).map(k => CERTS[k]);
   const canPass = ev.color === 'white';
+  const who = p.dept === 'driver' ? 'לנהג' : 'לעובד';
   openModal(`
     <div class="modal-head">
-      <div class="hello"><div class="avatar">${esc(initials(dr.name))}</div><div><h3 style="margin:0">${esc(dr.name)}</h3><div class="muted small">ת״ז ${esc(dr.tz)} · ${esc(dr.company)} · ${esc(dr.phone)}</div></div></div>
+      <div class="hello"><div class="avatar">${esc(initials(p.name))}</div><div><h3 style="margin:0">${esc(p.name)}</h3><div class="muted small"><span class="dept-tag">${esc(DEPTS[p.dept].label)}</span> ${esc(p.company)}</div></div></div>
       <span class="status-tag ${ev.color}"><span class="dot ${ev.color}"></span>${tag}</span>
       <button class="x" data-act="close" aria-label="סגור">${icon('x',18)}</button>
     </div>
     ${issues}
-    <div class="cert-grid">${certs}</div>
+    <h4 class="sub-h">${icon('id',18)}פרטים אישיים</h4>
+    <div class="info-grid">${personalRows(p).map(([l,v]) => `<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
+    <h4 class="sub-h">${icon('doc',18)}אישורים <span class="muted small" style="font-weight:400">נדרשים ל${esc(DEPTS[p.dept].label)}</span></h4>
+    <div class="cert-grid">${certs}${endCard}</div>
+    ${notReq.length ? `<p class="note">לא נדרש למחלקה: ${notReq.map(esc).join(', ')}</p>` : ''}
     <div class="row-actions">
-      <button class="btn ${canPass ? 'ok' : ''}" data-act="manual" data-id="${dr.id}" ${canPass ? '' : 'disabled'}>${icon(canPass ? 'check' : 'lock',18)}רישום ${dr.inside ? 'יציאה' : 'כניסה'} ידני</button>
+      <button class="btn ${canPass ? 'ok' : ''}" data-act="manual" data-id="${p.id}" ${canPass ? '' : 'disabled'}>${icon(canPass ? 'check' : 'lock',18)}רישום ${p.inside ? 'יציאה' : 'כניסה'} ידני</button>
       <button class="btn sec" data-act="close">סגור</button>
     </div>
-    <p class="note">${canPass ? 'רישום ידני מיועד לנהג בלי טלפון או בלי סוללה. נרשם ביומן עם סימון "ידני".' : 'לא ניתן לאשר כניסה ידנית לנהג שאינו תקין.'}</p>`);
+    <p class="note">${canPass ? `רישום ידני מיועד ${who} בלי טלפון או בלי סוללה. נרשם ביומן עם סימון "ידני".` : `לא ניתן לאשר כניסה ידנית ${who} שאינו תקין.`}</p>`);
 }
-function addDriverModal(){
+function addPersonModal(){
   openModal(`
-    <div class="modal-head"><div><h3 style="margin:0">הוספת נהג חדש</h3><div class="muted small">הנהג ייכנס לתור אישור של מנהל המערכת ויופיע בצהוב עד האישור</div></div><button class="x" data-act="close" aria-label="סגור">${icon('x',18)}</button></div>
-    <label for="aName">שם מלא</label><input id="aName" class="field">
-    <label for="aTz">תעודת זהות</label><input id="aTz" class="field" inputmode="numeric" maxlength="9">
-    <label for="aCompany">חברת הובלה</label><input id="aCompany" class="field">
-    <label for="aPhone">טלפון</label><input id="aPhone" class="field" inputmode="tel">
-    <div class="row-actions"><button class="btn" data-act="add-driver-save">שמור</button><button class="btn sec" data-act="close">ביטול</button></div>`);
+    <div class="modal-head"><div><h3 style="margin:0">הוספת עובד / נהג</h3><div class="muted small">ייכנס לתור אישור של מנהל המערכת ויופיע בצהוב עד האישור</div></div><button class="x" data-act="close" aria-label="סגור">${icon('x',18)}</button></div>
+    ${personFields('a', true)}
+    <div class="row-actions"><button class="btn" data-act="add-person-save">שמור</button><button class="btn sec" data-act="close">ביטול</button></div>`);
 }
 
 /* ---------- Terminal manager ---------- */
@@ -502,8 +620,9 @@ function renderManager(){
       <img src="${certImg(dr,k,p)}" alt="אישור שהועלה" data-act="zoom">
       <div>
         <div class="kv">
-          <span>נהג</span><b>${esc(dr.name)}</b>
-          <span>חברה</span><span>${esc(dr.company)}</span>
+          <span>שם</span><b>${esc(dr.name)}</b>
+          <span>מחלקה</span><span>${esc(DEPTS[dr.dept].label)}</span>
+          <span>מעסיק</span><span>${esc(dr.company)}</span>
           <span>סוג אישור</span><b>${CERTS[k]}</b>
           <span>מספר</span><span class="mono">${esc(p.number || '—')}</span>
           <span>הועלה</span><span>${time(p.at)}</span>
@@ -520,12 +639,15 @@ function renderManager(){
     </div>`).join('') : `<div class="card empty">${icon('inbox',28)}<div style="margin-top:8px">אין מסמכים שממתינים לאישור.</div></div>`;
 
   const soon = [];
-  state.drivers.forEach(dr => Object.keys(CERTS).forEach(k => {
-    const c = dr.certs[k];
-    if (c.status === 'valid' && daysTo(c.expiry) <= 30) soon.push({dr, k, c, n: daysTo(c.expiry)});
-  }));
+  state.people.forEach(dr => {
+    reqCerts(dr).forEach(k => {
+      const c = dr.certs[k];
+      if (c.status === 'valid' && daysTo(c.expiry) <= 30) soon.push({dr, label:CERTS[k], date:c.expiry, n: daysTo(c.expiry)});
+    });
+    if (dr.lastDay && daysTo(dr.lastDay) <= 30) soon.push({dr, label:'סיום עבודה', date:dr.lastDay, n: daysTo(dr.lastDay)});
+  });
   soon.sort((a,b) => a.n - b.n);
-  const soonRows = soon.length ? soon.map(s => `<tr><td><b>${esc(s.dr.name)}</b></td><td>${CERTS[s.k]}</td><td>${fmt(s.c.expiry)}</td><td>${s.n < 0 ? '<span class="pill bad">פג</span>' : `<span class="pill soon">${s.n} ימים</span>`}</td></tr>`).join('')
+  const soonRows = soon.length ? soon.map(s => `<tr><td><b>${esc(s.dr.name)}</b><div class="small muted">${esc(DEPTS[s.dr.dept].label)}</div></td><td>${esc(s.label)}</td><td>${fmt(s.date)}</td><td>${s.n < 0 ? '<span class="pill bad">פג</span>' : `<span class="pill soon">${s.n} ימים</span>`}</td></tr>`).join('')
     : '<tr><td colspan="4" class="empty">אין אישורים שפוקעים בקרוב.</td></tr>';
 
   return `<div class="two-col">
@@ -535,24 +657,24 @@ function renderManager(){
     </section>
     <section>
       <div class="section-title"><h2>${icon('clock',22)}פוקעים / פגו ב-30 יום</h2></div>
-      <div class="table-wrap"><table class="simple-table"><thead><tr><th>נהג</th><th>אישור</th><th>תאריך</th><th>מצב</th></tr></thead><tbody>${soonRows}</tbody></table></div>
-      <p class="note">הנהג מקבל תזכורת אוטומטית באפליקציה 30 יום לפני פקיעה, כדי לקבוע הדרכה לפני שהוא נחסם בשער.</p>
+      <div class="table-wrap"><table class="simple-table"><thead><tr><th>שם</th><th>אישור</th><th>תאריך</th><th>מצב</th></tr></thead><tbody>${soonRows}</tbody></table></div>
+      <p class="note">העובד מקבל תזכורת אוטומטית באפליקציה 30 יום לפני פקיעה, כדי לקבוע הדרכה לפני שהוא נחסם בשער.</p>
     </section>
   </div>`;
 }
 
 /* ---------- System admin ---------- */
 function renderAdmin(){
-  const regs = state.drivers.filter(x => !x.approved);
+  const regs = state.people.filter(x => !x.approved);
   const regHtml = regs.length ? regs.map(dr => `
     <div class="card reg-card">
-      <div class="hello"><div class="avatar">${esc(initials(dr.name))}</div><div><b>${esc(dr.name)}</b><div class="small muted">${esc(dr.company)}</div></div></div>
-      <div class="kv"><span>ת״ז</span><span class="mono">${esc(dr.tz)}</span><span>טלפון</span><span>${esc(dr.phone)}</span></div>
+      <div class="hello"><div class="avatar">${esc(initials(dr.name))}</div><div><b>${esc(dr.name)}</b><div class="small muted"><span class="dept-tag">${esc(DEPTS[dr.dept].label)}</span> ${esc(dr.company)}</div></div></div>
+      <div class="kv"><span>ת״ז</span><span class="mono">${esc(dr.tz)}</span><span>טלפון</span><span dir="ltr">${esc(dr.phone)}</span><span>מייל</span><span dir="ltr">${esc(dr.email) || '—'}</span></div>
       <div class="row-actions"><button class="btn ok sm" data-act="approve-reg" data-id="${dr.id}">${icon('check',16)}אשר רישום</button><button class="btn bad sm" data-act="reject-reg" data-id="${dr.id}">${icon('x',16)}דחה</button></div>
     </div>`).join('') : `<div class="card empty">${icon('inbox',28)}<div style="margin-top:8px">אין בקשות רישום ממתינות.</div></div>`;
-  const secRows = state.drivers.filter(x => x.approved).map(dr => {
+  const secRows = state.people.filter(x => x.approved).map(dr => {
     const c = dr.certs.security;
-    return `<tr><td><b>${esc(dr.name)}</b><div class="small muted">${esc(dr.company)}</div></td><td>${certPill(c)}</td><td>${c.status==='valid' ? fmt(c.expiry) : '<span class="muted">—</span>'}</td>
+    return `<tr><td><b>${esc(dr.name)}</b><div class="small muted">${esc(DEPTS[dr.dept].label)} · ${esc(dr.company)}</div></td><td>${certPill(c)}</td><td>${c.status==='valid' ? fmt(c.expiry) : '<span class="muted">—</span>'}</td>
       <td><div style="display:flex;gap:6px;flex-wrap:wrap"><input id="sec-${dr.id}" class="field" type="date" value="${d(365)}" style="width:155px;padding:7px 10px"><button class="btn sm" data-act="grant-sec" data-id="${dr.id}">${c.status==='valid' ? 'חדש' : 'הענק'}</button></div></td></tr>`;
   }).join('');
   return `<div class="two-col">
@@ -563,7 +685,7 @@ function renderAdmin(){
     </section>
     <section>
       <div class="section-title"><h2>${icon('shield',22)}אישורים ביטחוניים</h2></div>
-      <div class="table-wrap"><table class="simple-table" style="min-width:540px"><thead><tr><th>נהג</th><th>מצב</th><th>תוקף</th><th>פעולה</th></tr></thead><tbody>${secRows}</tbody></table></div>
+      <div class="table-wrap"><table class="simple-table" style="min-width:540px"><thead><tr><th>שם</th><th>מצב</th><th>תוקף</th><th>פעולה</th></tr></thead><tbody>${secRows}</tbody></table></div>
       <p class="note">בגרסה אמיתית רק גורם ביטחון מורשה (קב״ט) יראה את הפעולה הזו.</p>
     </section>
   </div>`;
@@ -594,19 +716,17 @@ document.addEventListener('click', ev => {
     case 'home': ui.dview = 'home'; break;
     case 'certs': ui.dview = 'certs'; break;
     case 'register': {
-      const name = val('rName'), tz = val('rTz'), company = val('rCompany'), phone = val('rPhone'), user = val('rUser');
-      if (!name || !company || !user) return toast('נא למלא שם, חברה ושם משתמש');
-      if (!/^\d{9}$/.test(tz)) return toast('תעודת זהות חייבת להכיל 9 ספרות');
-      if (state.drivers.some(x => x.tz === tz)) return toast('תעודת הזהות כבר קיימת במערכת');
-      const M = () => ({status:'missing',expiry:null,number:null,img:null,pending:null});
-      const dr = {id:state.nextId++, name, tz, company, phone:phone||'—', user, approved:false, inside:false, last:null, notes:[], certs:{security:M(),height:M(),hazmat:M()}};
-      state.drivers.push(dr); ui.currentId = dr.id; ui.dview = 'home';
+      const r = readPersonFields('r', false), user = val('rUser');
+      if (r.error) return toast(r.error);
+      if (!user) return toast('נא לבחור שם משתמש');
+      const dr = {...r.person, id:state.nextId++, user, approved:false, inside:false, last:null, notes:[], certs:blankCerts()};
+      state.people.push(dr); ui.currentId = dr.id; ui.dview = 'home';
       toast('הבקשה נשלחה למנהל המערכת');
       break;
     }
     case 'go-qr': newQr(); ui.dview = 'qr'; break;
     case 'sim-scan': ui.result = scan(ui.currentId, 'QR'); ui.dview = 'result'; break;
-    case 'go-upload': ui.uploadKey = UPLOADABLE.includes(k) ? k : 'height'; ui.uploadImg = null; ui.dview = 'upload'; break;
+    case 'go-upload': ui.uploadKey = UPLOADABLE.includes(k) ? k : UPLOADABLE.find(x => reqCerts(cur()).includes(x)); ui.uploadImg = null; ui.dview = 'upload'; break;
     case 'upload': {
       const dr = cur(), key = val('uType'), number = val('uNum'), expiry = val('uExp');
       if (!number) return toast('נא להזין מספר אישור');
@@ -618,16 +738,13 @@ document.addEventListener('click', ev => {
     }
     case 'dismiss-note': cur().notes.splice(Number(el.dataset.i), 1); break;
     case 'filter': ui.filter = k; break;
-    case 'open-driver': driverModal(id); return;
-    case 'add-driver': addDriverModal(); return;
-    case 'add-driver-save': {
-      const name = val('aName'), tz = val('aTz'), company = val('aCompany'), phone = val('aPhone');
-      if (!name || !company) return toast('נא למלא שם וחברה');
-      if (!/^\d{9}$/.test(tz)) return toast('תעודת זהות חייבת להכיל 9 ספרות');
-      if (state.drivers.some(x => x.tz === tz)) return toast('תעודת הזהות כבר קיימת במערכת');
-      const M = () => ({status:'missing',expiry:null,number:null,img:null,pending:null});
-      state.drivers.push({id:state.nextId++, name, tz, company, phone:phone||'—', user:'driver'+tz.slice(-4), approved:false, inside:false, last:null, notes:[], certs:{security:M(),height:M(),hazmat:M()}});
-      closeModal(); toast('הנהג נוסף ומחכה לאישור מנהל מערכת');
+    case 'open-driver': personModal(id); return;
+    case 'add-driver': addPersonModal(); return;
+    case 'add-person-save': {
+      const r = readPersonFields('a', true);
+      if (r.error) return toast(r.error);
+      state.people.push({...r.person, id:state.nextId++, user:'user'+r.person.tz.slice(-4), approved:false, inside:false, last:null, notes:[], certs:blankCerts()});
+      closeModal(); toast(`${r.person.name} נוסף/ה ומחכה לאישור מנהל מערכת`);
       break;
     }
     case 'scan-unknown': scanUnknown(); break;
@@ -645,11 +762,11 @@ document.addEventListener('click', ev => {
       const dr = byId(id), reason = val(`rsn-${id}-${k}`) || 'המסמך לא תקין';
       dr.certs[k].pending = null;
       dr.notes.push(`${CERTS[k]} נדחה ע״י מנהל המסוף: ${reason}`);
-      toast('המסמך נדחה והנהג קיבל הודעה');
+      toast('המסמך נדחה והעובד קיבל הודעה');
       break;
     }
     case 'approve-reg': byId(id).approved = true; toast('הרישום אושר'); break;
-    case 'reject-reg': state.drivers = state.drivers.filter(x => x.id !== id); toast('הבקשה נדחתה'); break;
+    case 'reject-reg': state.people = state.people.filter(x => x.id !== id); toast('הבקשה נדחתה'); break;
     case 'grant-sec': {
       const expiry = val(`sec-${id}`);
       if (!expiry || daysTo(expiry) < 1) return toast('תאריך התוקף חייב להיות עתידי');
