@@ -30,6 +30,7 @@ const I = {
   hardhat:'<path d="M3 17h18v2H3z"/><path d="M5 17a7 7 0 0 1 14 0"/><path d="M10 10V6h4v4"/>',
   calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  download:'<path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/>',
   id:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5a3.5 3.5 0 0 1 7 0M15 10h3M15 14h3"/>',
 };
 const icon = (n, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -597,6 +598,7 @@ function renderGuard(){
   <div class="guard-bar">
     <div class="search-wrap">${icon('search',20)}<input id="guardSearch" class="search" type="search" placeholder="חיפוש לפי שם, ת״ז או חברה (גם לנהג בלי טלפון)" value="${esc(ui.q)}"></div>
     <button class="btn" data-act="add-driver" data-k="driver">${icon('plus',18)}הוספת נהג</button>
+    <button class="btn sec" data-act="export-gate">${icon('download',18)}ייצוא לאקסל</button>
     <button class="btn sec" data-act="staff-open">${icon('users',18)}כל העובדים <span class="count-pill">${state.people.length}</span></button>
     <button class="btn sec" data-act="scan-unknown">${icon('scan',18)}סימולציה: קוד לא מזוהה</button>
   </div>
@@ -615,6 +617,87 @@ function renderGuard(){
   </div>
   <p class="note">לחיצה על שורה פותחת כרטיס עובד: פרטים אישיים, מה בדיוק חסר, תאריכים, צילום האישור ורישום כניסה ידני.</p>`;
 }
+/* ---------- Excel export (SheetJS is loaded only on first export) ---------- */
+const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const XLSX_SRI = 'sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==';
+let xlsxLoading;
+function loadXlsx(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return xlsxLoading = xlsxLoading || new Promise((ok, fail) => {
+    const s = document.createElement('script');
+    s.src = XLSX_SRC; s.integrity = XLSX_SRI; s.crossOrigin = 'anonymous';
+    s.onload = () => ok(window.XLSX);
+    s.onerror = () => { xlsxLoading = null; fail(new Error('load')); };
+    document.head.appendChild(s);
+  });
+}
+const xDate = s => { if (!s) return ''; const [y,m,dd] = s.split('-').map(Number); return new Date(y, m - 1, dd); };
+function certState(p, k){
+  if (!reqCerts(p).includes(k)) return 'לא נדרש';
+  const c = p.certs[k];
+  if (c.status !== 'valid') return c.pending ? 'ממתין לאישור' : 'חסר';
+  const n = daysTo(c.expiry);
+  return n < 0 ? 'פג תוקף' : n <= 30 ? 'פוקע בקרוב' : 'תקין';
+}
+function exportRow(p){
+  const ev = evalD(p);
+  const row = {
+    'שם פרטי': p.firstName, 'שם משפחה': p.lastName, 'מספר זהות': p.tz, 'מין': p.gender || '',
+    'תאריך לידה': xDate(p.birth), 'מחלקה': DEPTS[p.dept].label, 'מעסיק': p.company,
+    'תאריך הצטרפות': xDate(p.joined), 'יום אחרון': xDate(p.lastDay),
+    'טלפון': p.phone || '', 'מייל': p.email || '', 'כתובת': p.address || '',
+    'סטטוס בשער': COLOR_WORD[ev.color],
+    'מה חסר': ev.color === 'yellow' ? 'לא רשום / ממתין לאישור רישום' : ev.issues.map(i => `${i.label}: ${i.text}`).join(' | '),
+    'בתוך המתקן': p.inside ? 'כן' : 'לא',
+  };
+  for (const k of Object.keys(CERTS)){
+    const c = p.certs[k], needed = reqCerts(p).includes(k);
+    row[`${CERTS[k]} - מצב`] = certState(p, k);
+    row[`${CERTS[k]} - תוקף`] = needed && c.status === 'valid' ? xDate(c.expiry) : '';
+  }
+  return row;
+}
+async function exportExcel(list, label){
+  if (!list.length) return toast('אין שורות לייצוא לפי הסינון הנוכחי');
+  let X;
+  try { X = await loadXlsx(); } catch { return toast('לא הצלחתי לטעון את רכיב האקסל. בדוק חיבור לאינטרנט.'); }
+  const rows = list.map(exportRow), headers = Object.keys(rows[0]);
+  const ws = X.utils.json_to_sheet(rows, {header:headers, cellDates:true, dateNF:'dd/mm/yyyy'});
+  ws['!cols'] = headers.map(h => {
+    const w = Math.max(h.length, ...rows.map(r => r[h] instanceof Date ? 10 : String(r[h]).length)) + 2;
+    return {wch: Math.min(w, 40)};
+  });
+  ws['!autofilter'] = {ref: ws['!ref']};
+  const info = X.utils.aoa_to_sheet([
+    ['מערכת', BRAND.name.join('')],
+    ['מסוף', BRAND.terminal],
+    ['תאריך ייצוא', new Date().toLocaleString('he-IL')],
+    ['תוכן', label],
+    ['מספר שורות', list.length],
+    [],
+    ['הקובץ מכיל מידע אישי. יש לשמור ולשתף אותו רק לפי נוהלי אבטחת המידע.'],
+  ]);
+  info['!cols'] = [{wch:16}, {wch:50}];
+  const wb = X.utils.book_new();
+  wb.Workbook = {Views:[{RTL:true}]};
+  X.utils.book_append_sheet(wb, ws, 'עובדים');
+  X.utils.book_append_sheet(wb, info, 'פרטי ייצוא');
+  X.writeFile(wb, `${BRAND.name.join('')}_${label.replace(/[\\/:*?"<>|]/g, '')}_${d(0)}.xlsx`, {cellDates:true});
+  toast(`יוצאו ${list.length} שורות לאקסל`);
+}
+function staffExportLabel(){
+  const parts = [ui.staffDept === 'all' ? 'כל העובדים' : DEPTS[ui.staffDept].label];
+  if (ui.staffFilter !== 'all') parts.push(ui.staffFilter === 'inside' ? 'בתוך המתקן' : COLOR_WORD[ui.staffFilter]);
+  if (ui.staffQ.trim()) parts.push('חיפוש ' + ui.staffQ.trim());
+  return parts.join(' - ');
+}
+function gateExportLabel(){
+  const parts = ['נהגים'];
+  if (ui.filter !== 'all') parts.push(ui.filter === 'inside' ? 'בתוך המתקן' : COLOR_WORD[ui.filter]);
+  if (ui.q.trim()) parts.push('חיפוש ' + ui.q.trim());
+  return parts.join(' - ');
+}
+
 /* ---------- Full staff list (all departments) ---------- */
 const DEPT_ICON = { driver:'truck', contractor:'hardhat', employee:'user', security:'shield', tashan:'id' };
 const STATUS_ORDER = {red:0, yellow:1, white:2};
@@ -678,6 +761,7 @@ function renderStaff(){
   <div class="staff-head">
     <button class="btn sec" data-act="staff-close">${icon('back',18)}חזרה לשער</button>
     <h2>${icon('users',24)}כל העובדים</h2>
+    <button class="btn sec" data-act="export-staff">${icon('download',18)}ייצוא לאקסל</button>
     <button class="btn" data-act="add-driver" data-k="${ui.staffDept === 'all' ? '' : ui.staffDept}">${icon('plus',18)}הוספת עובד</button>
   </div>
   <div class="dept-cards">${deptCards}</div>
@@ -870,6 +954,8 @@ document.addEventListener('click', ev => {
     }
     case 'dismiss-note': cur().notes.splice(Number(el.dataset.i), 1); break;
     case 'filter': ui.filter = k; break;
+    case 'export-staff': exportExcel(staffList(), staffExportLabel()); return;
+    case 'export-gate': exportExcel(filteredDrivers(), gateExportLabel()); return;
     case 'staff-open': ui.guardView = 'staff'; window.scrollTo(0, 0); break;
     case 'staff-close': ui.guardView = 'gate'; window.scrollTo(0, 0); break;
     case 'staff-dept': ui.staffDept = k; break;

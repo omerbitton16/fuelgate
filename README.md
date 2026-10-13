@@ -26,7 +26,7 @@ What goes wrong in practice:
 | Role | What they get |
 |---|---|
 | **Driver** (phone app) | One big Enter / Exit button that shows a rotating QR code (it changes every 30 seconds, so a screenshot can't be passed to another driver). Permit list with expiry dates, a reminder 30 days before a permit expires, and photo upload of new permits. |
-| **Guard** (desk station) | The familiar white / yellow / red table, plus search by name, ID or company, exactly what's missing and since when, a photo of each permit, a live scan log, and **manual entry for drivers without a phone**. |
+| **Guard** (desk station) | The familiar white / yellow / red table, plus search by name, ID or company, exactly what's missing and since when, a photo of each permit, a live scan log, and **manual entry for drivers without a phone**. A full person card with personal details and an ID photo (uploaded by security only). An "all staff" screen covering every department (drivers, contractors, employees, security), with filters, sorting and **Excel export**. |
 | **Terminal manager** | Approval queue: a driver's upload counts only after the manager verifies it. Drivers never approve their own documents. |
 | **System admin** | Approves new registrations, so it's no longer a one-person bottleneck. Security clearances are issued only here. |
 
@@ -46,11 +46,12 @@ Open the [live demo](https://omerbitton16.github.io/fuelgate/), or clone the rep
 - **QR before NFC.** It works on any phone, needs no new card readers, and has no iPhone NFC restrictions. NFC can come later.
 - **Manual lookup is mandatory.** A dead battery shouldn't block the gate.
 - **No self-approval.** Every uploaded document stays *pending* until a human verifies it.
+- **Approvals per department.** A driver needs security clearance, a hazmat license, work-at-height and safety training; an office employee needs only security and safety. One table (`DEPTS`) defines it.
 - **Branding in one place.** The `BRAND` object in `app.js` holds the name, tagline and terminal, so the prototype can be re-skinned for any operator.
 
 ## Tech
 
-Plain HTML, CSS and JavaScript, with no framework or build step. RTL Hebrew UI, responsive down to phone width, and Web Audio for the gate beeps.
+Plain HTML, CSS and JavaScript, with no framework or build step. RTL Hebrew UI, responsive down to phone width, and Web Audio for the gate beeps. Excel export uses [SheetJS](https://sheetjs.com/), loaded from cdnjs with an integrity check, and only when the export button is clicked.
 
 | File | What's in it |
 |---|---|
